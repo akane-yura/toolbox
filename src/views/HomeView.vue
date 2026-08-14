@@ -1,5 +1,6 @@
 <script setup>
 import { computed, ref, toRaw, watch } from 'vue'
+import { RouterLink } from 'vue-router'
 import { groupSkills, seriesSkills } from '../data/skills'
 
 const STORAGE_KEY = 'gog-artia-data-v1'
@@ -251,9 +252,7 @@ function getHistoryMatchType(history) {
         </div>
       </div>
 
-      <button class="ghost" :disabled="!undoSnapshot" @click="restoreUndo">
-        ↶ 戻す
-      </button>
+      <RouterLink class="ghost toolbox-link" to="/">← Tool Box</RouterLink>
     </header>
 
     <div class="workspace">
@@ -342,13 +341,14 @@ function getHistoryMatchType(history) {
       <aside class="history-panel">
         <div class="history-head">
           <h2>履歴 <em>{{ currentTarget.history.length }}</em></h2>
-          <button
-            class="consume-button"
-            :disabled="selectedHistoryIndex === null"
-            @click="consumeSelectedHistory"
-          >
-            消化する
-          </button>
+          <div class="history-actions">
+            <button class="undo-button" :disabled="!undoSnapshot" @click="restoreUndo">
+              ↶ 戻す
+            </button>
+            <button class="consume-button" :disabled="selectedHistoryIndex === null" @click="consumeSelectedHistory">
+              消化する
+            </button>
+          </div>
         </div>
         <div class="history-list">
           <div
