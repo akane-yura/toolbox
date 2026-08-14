@@ -356,7 +356,8 @@ function getHistoryMatchType(history) {
             :class="{ active: target.id === persistentData.selectedTargetId }"
             @click="selectTarget(target.id)"
           >
-            {{ target.name }}
+            <span class="target-name">{{ target.name }}</span>
+            <span class="target-history-count">{{ target.history.length }}</span>
           </button>
         </div>
 
