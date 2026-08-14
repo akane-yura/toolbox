@@ -46,6 +46,7 @@ const selectedSeriesId = ref(null)
 const selectedGroupId = ref(null)
 const selectedHistoryIndex = ref(null)
 const message = ref('')
+const importFileInput = ref(null)
 
 const currentTarget = computed(() => {
   return persistentData.value.targets.find(
@@ -75,6 +76,87 @@ watch(
 
 function saveData() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(persistentData.value))
+}
+
+function exportData() {
+  const exportPayload = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    data: structuredClone(toRaw(persistentData.value)),
+  }
+  const fileContents = JSON.stringify(exportPayload, null, 2)
+  const file = new Blob([fileContents], { type: 'application/json' })
+  const downloadUrl = URL.createObjectURL(file)
+  const link = document.createElement('a')
+
+  link.href = downloadUrl
+  link.download = `gog-artia-backup-${new Date().toISOString().slice(0, 10)}.json`
+  link.click()
+  URL.revokeObjectURL(downloadUrl)
+}
+
+function openImportDialog() {
+  importFileInput.value?.click()
+}
+
+function validateImportedData(importPayload) {
+  if (importPayload?.version !== 1) {
+    throw new Error('対応していないデータ形式です。')
+  }
+
+  const importedData = importPayload.data
+  if (!importedData || !Array.isArray(importedData.targets) || importedData.targets.length === 0) {
+    throw new Error('対象データが見つかりません。')
+  }
+
+  for (const target of importedData.targets) {
+    if (!target.id || typeof target.name !== 'string' || !target.goal || !Array.isArray(target.history)) {
+      throw new Error('厳選対象データの形式が不正です。')
+    }
+
+    for (const history of target.history) {
+      if (!history.seriesId || !history.groupId) {
+        throw new Error('履歴データの形式が不正です。')
+      }
+    }
+  }
+
+  if (importedData.selectedTargetId && !importedData.targets.some((target) => target.id === importedData.selectedTargetId)) {
+    throw new Error('選択中対象の整合性が取れません。')
+  }
+
+  return structuredClone(importedData)
+}
+
+function importData(event) {
+  const file = event.target.files?.[0]
+  event.target.value = ''
+
+  if (!file) {
+    return
+  }
+
+  const reader = new FileReader()
+  reader.onload = () => {
+    try {
+      const importedPayload = JSON.parse(reader.result)
+      const importedData = validateImportedData(importedPayload)
+
+      if (!window.confirm('現在の全Selectorデータをインポート内容で上書きしますか？')) {
+        return
+      }
+
+      persistentData.value = importedData
+      undoSnapshot.value = null
+      selectedHistoryIndex.value = null
+      clearSkillSelection()
+      saveData()
+      message.value = 'インポートしました。'
+    } catch (error) {
+      message.value = `インポートに失敗しました: ${error.message}`
+    }
+  }
+  reader.readAsText(file)
 }
 
 function createUndoSnapshot() {
@@ -252,7 +334,12 @@ function getHistoryMatchType(history) {
         </div>
       </div>
 
-      <RouterLink class="ghost toolbox-link" to="/">← Tool Box</RouterLink>
+      <div class="topbar-actions">
+        <button class="ghost" @click="exportData">エクスポート</button>
+        <button class="ghost" @click="openImportDialog">インポート</button>
+        <input ref="importFileInput" class="hidden-file-input" type="file" accept="application/json" @change="importData" />
+        <RouterLink class="ghost toolbox-link" to="/">← Tool Box</RouterLink>
+      </div>
     </header>
 
     <div class="workspace">
